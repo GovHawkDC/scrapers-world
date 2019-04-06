@@ -1,5 +1,5 @@
 import pytz
-
+import re
 import lxml.html
 import urllib.parse as urlparse
 
@@ -7,8 +7,9 @@ from pupa.scrape import Scraper, Bill, VoteEvent
 from lxml import etree
 from datetime import datetime
 
+
 class AUBillScraper(Scraper):
-    tz = pytz.timezone('Australia/Sydney')
+    _TZ = pytz.timezone('Australia/Sydney')
 
     RESULTS = None
 
@@ -16,6 +17,15 @@ class AUBillScraper(Scraper):
         'House of Representatives': 'lower',
         'Senate': 'upper'
     }
+
+
+    action_classifiers = [
+        ('Introduced and read a first time', ['introduction', 'reading-1']),
+        ('Second reading agreed to', ['reading-2']),
+        ('Third reading agreed to', ['reading-3']),
+        ('Assent', ['became-law']),
+    ]
+
 
     def scrape(self,session=None, chamber=None):
         if not session:
@@ -36,7 +46,6 @@ class AUBillScraper(Scraper):
             bill_chamber = self.dd(row, 'Chamber')
 
             if self.CHAMBERS[bill_chamber] == chamber:
-                # print(bill_url, bill_chamber)
                 yield from self.scrape_bill(session, chamber, bill_url)
 
     def scrape_bill(self, session, chamber, url):
@@ -151,7 +160,29 @@ class AUBillScraper(Scraper):
         for row in rows:
             action_text = row.xpath('td[1]/span/text()')[0].strip()
             action_date = row.xpath('td[2]/text()')[0].strip()
-            print(chamber, action_text, action_date)
+            action_date = self._TZ.localize(
+                datetime.strptime(action_date, '%d %b %Y')
+            )
+
+            action_class = self.classify_action(action_text)
+
+            # final passage is a special case; we need to make actions
+            # (one per chamber) out of one statement
+            if 'Finally passed both Houses' in action_text:
+                for chamber in ['lower', 'upper']:
+                    act = bill.add_action('Finally passed',
+                        chamber=chamber,
+                        date=action_date,
+                        classification='passage',
+                    )
+            else:
+                act = bill.add_action(action_text,
+                    chamber=chamber,
+                    date=action_date,
+                    classification=action_class
+                )
+
+        # TODO: Test royal assent bills
 
     # since we're not scraping by chamber, at least
     # cache the search results page so we don't pull it twice
@@ -184,3 +215,9 @@ class AUBillScraper(Scraper):
             return dd.strip()
         else:
             return ''
+
+    def classify_action(self, action):
+        for regex, classification in self.action_classifiers:
+            if re.match(regex, action):
+                return classification
+        return None
