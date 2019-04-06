@@ -83,17 +83,12 @@ class AUBillScraper(Scraper):
 
         bill.add_source(url)
 
-
-            # act = bill.add_action(description=action['billStageType']['title'],
-            #                 chamber=chamber,
-            #                 date=action['billStageSittings'][0]['date']['_value'],
-            #                 classification=action_class, #see note about allowed classifications
-            #                 )
-
         yield bill
 
     def scrape_bill_versions(self, page, bill):
-        rows = page.xpath('//table[contains(@class,"bill-docs")][1]/tbody/tr')
+        # careful, the parens are relevant here, otherwise we get amendments too on
+        # https://www.aph.gov.au/Parliamentary_Business/Bills_Legislation/Bills_Search_Results/Result?bId=s1042
+        rows = page.xpath('(//table[contains(@class,"bill-docs")])[1]/tbody/tr')
         for row in rows:
             version_name = row.xpath('td[1]/ul/li/text()')[0].strip()
             for link in row.xpath('td[2]/a'):
@@ -190,18 +185,26 @@ class AUBillScraper(Scraper):
         if self.RESULTS is not None:
             return self.RESULTS
 
+        # page = 2
         url = 'https://www.aph.gov.au/Parliamentary_Business/Bills_Legislation/Bills_before_Parliament'
         params = {
             'pnu': session,
             'pnuH': session,
-            'ps': 500,
+            'ps': 100,
             'q': '',
+            'st': 2,
+            'sr': 0,
+            't': '',
+            'ito': 1,
+            'expand': 'False',
         }
 
         html = self.get(url, params=params).content
         page = lxml.html.fromstring(html)
 
         page.make_links_absolute(url)
+
+        # TODO: pull max out of html, / 100, for i in 2..max scrape
 
         self.RESULTS = page
         return page
