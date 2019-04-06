@@ -9,7 +9,7 @@ from pupa.scrape import Jurisdiction
 from datetime import datetime
 
 from .people import AUPersonScraper
-# from .bills import UKBillScraper
+from .bills import AUBillScraper
 
 class AU(Jurisdiction):
     classification = 'legislature'
@@ -20,13 +20,14 @@ class AU(Jurisdiction):
 
     scrapers = {
         "people": AUPersonScraper,
-        # "bills": AUBillScraper,
+        "bills": AUBillScraper,
     }
 
     legislative_sessions = [
         {"identifier": "45",
          "name": "45th Parliament",
-         "start_date": "2019-01-01"}
+         "start_date": "2016-08-30",
+         "end_date": "2019-12-31"}
     ]
 
     def get_organizations(self):
