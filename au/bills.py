@@ -68,6 +68,7 @@ class AUBillScraper(Scraper):
                                 entity_type="person",
                                 primary=True)
 
+        self.scrape_bill_actions(page, bill)
         self.scrape_bill_versions(page, bill)
         self.scrape_bill_documents(page, bill)
 
@@ -128,6 +129,30 @@ class AUBillScraper(Scraper):
                                         media_type='text/html',
                                         on_duplicate='ignore')
 
+    def scrape_bill_actions(self, page, bill):
+        house_rows = page.xpath('//table[@class="fullwidth" and '
+                                './/th[contains(string(.), "House of Representatives")]]')
+        if house_rows:
+            self.scrape_actions_table(house_rows[0], bill, 'lower')
+
+        senate_rows = page.xpath('//table[@class="fullwidth" and '
+                                './/th[contains(string(.), "Senate")]]')
+
+        if senate_rows:
+            self.scrape_actions_table(senate_rows[0], bill, 'upper')
+
+        executive_rows = page.xpath('//table[@class="fullwidth" and '
+                                './/span[contains(string(.), "Finally")]]')
+        if executive_rows:
+            self.scrape_actions_table(executive_rows[0], bill, 'executive')
+
+    def scrape_actions_table(self, page, bill, chamber):
+        rows = page.xpath('tbody/tr')
+        for row in rows:
+            action_text = row.xpath('td[1]/span/text()')[0].strip()
+            action_date = row.xpath('td[2]/text()')[0].strip()
+            print(chamber, action_text, action_date)
+
     # since we're not scraping by chamber, at least
     # cache the search results page so we don't pull it twice
     def search_results(self, session):
@@ -154,7 +179,6 @@ class AUBillScraper(Scraper):
     # Given Header, return Data
     def dd(self, page, header):
         expr = '//dt[contains(text(),"{}")]/following-sibling::dd/text()'.format(header)
-        print(expr)
         if page.xpath(expr):
             dd = page.xpath(expr)[0]
             return dd.strip()
