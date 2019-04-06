@@ -50,12 +50,13 @@ class AUBillScraper(Scraper):
 
         portfolio = self.dd(page, 'Portfolio')
         orig_house = self.dd(page, 'Originating house')
-        print("TEST")
         print(bill_id, title, portfolio, orig_house)
+
+        bill_chamber = self.CHAMBERS[orig_house]
 
         bill = Bill(bill_id,
                     legislative_session=session,
-                    chamber=chamber,
+                    chamber=bill_chamber,
                     title=title,
                     classification='bill')
 
@@ -152,7 +153,7 @@ class AUBillScraper(Scraper):
     # many pages have <dt>Header</dt><dd>Data</dd>
     # Given Header, return Data
     def dd(self, page, header):
-        expr = '//dt[text()="{}"]/following-sibling::dd/text()'.format(header)
+        expr = '//dt[contains(text(),"{}")]/following-sibling::dd/text()'.format(header)
         print(expr)
         if page.xpath(expr):
             dd = page.xpath(expr)[0]
